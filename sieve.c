@@ -1,79 +1,88 @@
-//inspired at https://www.codesdope.com / blog / article / prime - numbers - using - sieve - algorithm - in - c
+// inspired at https://www.codesdope.com / blog / article / prime - numbers - using - sieve - algorithm - in - c
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>
 #include <math.h>
 #include <time.h>
-
-#ifdef PARALLEL
 #include <omp.h>
-#endif
-
-#define SIZE 2000000000
 
 int main(int argc, char *argv[]) {
-	int i, j;
-	long int number, square;
-	static int64_t primes[SIZE + 1];
-	uint64_t	sum = 0;
-	clock_t t;
+	long		i         , j, size, square;
+	int 		chunk = 0, num_threads = 0;
+	uint64_t        *primes, sum = 0;
+	double		start_time, time;
+	omp_sched_t schedule;
 
-#ifdef PARALLEL	
-	int num_threads;
-	if (argc != 2 ) {
-		printf("Usage: ./sieve number_of_threads\n");
-		exit (1);
+	//serial section
+	start_time = omp_get_wtime();
+	size = atoi(argv[1]);
+
+#ifdef PARALLEL
+	if (argc != 3) {
+		printf("Usage: ./sieve_sieve size\n");
+		printf("Usage: ./sieve_parallel size number_of_threads\n");
+		exit(1);
 	}
-	num_threads = atoi(argv[1]);
-#endif	
-	number = SIZE;
-	printf("Size: %lu\n", number);
-	square = sqrt(number);
-	printf("Square: %lu\n", square);
-        
-	t = clock();
+	num_threads = atoi(argv[2]);
+#endif
+
+	square = sqrt(size);
+
+	primes = malloc(1 + (size * sizeof(uint64_t)));
+	if (!primes) {
+		perror("malloc arr");
+		exit(EXIT_FAILURE);
+	};
+
 	//parallel section
-#ifdef PARALLEL	
-	#pragma omp parallel num_threads(num_threads) shared(primes, sum) private(i, j)
+#ifdef PARALLEL
+#pragma omp parallel num_threads(num_threads) shared(primes, sum) private(i, j)
 	{
-	#pragma omp single 
-	printf("Number of threads: %d\n", omp_get_num_threads());
-	#pragma omp for
-#endif	
-	for (i = 2; i <= number; i++) 
-		primes[i] = i;
-        
-#ifdef PARALLEL	
-	#pragma omp for schedule(dynamic)
-#endif	
-	for (i = 2; i <= square; i++) {
-		if (primes[i] != 0) {
-			for (j = 2; j < number; j++) {
-				if (primes[i] * j > number)
-					break;
-				else
-					primes[primes[i] * j] = 0;
+//#pragma omp single
+//		printf("Number of threads: %d\n", omp_get_num_threads());
+#pragma omp for
+#endif
+		for (i = 2; i <= size; i++)
+			primes[i] = i;
+
+#ifdef PARALLEL
+#pragma omp for schedule(runtime)
+#endif
+		for (i = 2; i <= square; i++) {
+			if (primes[i] != 0) {
+				for (j = 2; j < size; j++) {
+					if (primes[i] * j > size)
+						break;
+					else
+						primes[primes[i] * j] = 0;
+				}
 			}
 		}
-	}
-#ifdef PARALLEL	
-        #pragma omp for reduction(+:sum)
-#endif	
-	for (i = 2; i <= number; i++) {
-		if (primes[i])
-			sum++;
-	}
-#ifdef PARALLEL	
-	}
-#endif	
-	/* if (print) {
-		for (i = 2; i <= number; i++) {
-			if (primes[i] != 0)
-				printf("%" PRId64 "\n", primes[i]);
+		omp_get_schedule(&schedule, &chunk);
+#ifdef PARALLEL
+#pragma omp for reduction(+:sum)
+#endif
+		for (i = 2; i <= size; i++) {
+			if (primes[i])
+				sum++;
 		}
-	} */
-	t = clock() - t;
-	printf("Found %" PRIu64 " prime number(s), timespent: %f\n", sum, ((double)t)/CLOCKS_PER_SEC);
+#ifdef PARALLEL
+	}
+#endif
+	free(primes);
+	time = omp_get_wtime() - start_time;
+	
+	if (num_threads) {
+		//printf("num_threads,size,time,schedule,chunk\n");
+		printf("%d,%ld,%lf,%d,%d\n", num_threads,size,time,schedule,chunk);
+	} else {
+		//printf("num_threads,size,time,schedule,chunk\n");
+		printf("%d,%ld,%lf,0,0\n", num_threads,size,time);
+	}
+	//printf("Size: %ld\n", size);
+	//printf("Square: %ld\n", square);
+	//printf("Timespent: %lf\n", time);
+	//printf("Found prime number(s): %" PRIu64 "\n", sum); 
 	return 0;
 }

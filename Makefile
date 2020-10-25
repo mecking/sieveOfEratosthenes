@@ -3,8 +3,8 @@ CC = gcc
 # compiler flags:
 #  -g    adds debugging information to the executable file
 #  -Wall turns on most, but not all, compiler warnings
-CFLAGS  = -Wall -lm -pg -O1
-CFLAGS_PARALLEL = -DPARALLEL -fopenmp
+CFLAGS  = -Wall -lm -fopenmp
+CFLAGS_PARALLEL = -DPARALLEL
 
 # the build target executable:
 TARGET = sieve_serial sieve_parallel
